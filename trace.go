@@ -73,13 +73,18 @@ type Tracer struct {
 }
 
 var outchan chan string = make(chan string)
+var donechan chan bool = make(chan bool)
 
 func init() {
 	go func() {
 		for true {
-			s := <-outchan
-			fmt.Fprint(os.Stderr, s)
+			if s, ok := <-outchan; ok {
+				fmt.Fprint(os.Stderr, s)
+			} else {
+				break
+			}
 		}
+		donechan <- true
 	}()
 }
 
@@ -100,14 +105,17 @@ func (this *Tracer) Exit(pc uintptr) {
 
 	if x != nil {
 		this.trace(2, "panic exit", false)
-	} else if (this.TraceLevel & Frame) != 0 {
+		Stop()
+		panic(x)
+	} else {
 		this.trace(2, "exit", this.FrameSource)
 	}
+}
 
-	//	os.Stderr.Sync()
-	if x != nil {
-		panic(x)
-	}
+// Stop stops all tracing and wait until all trace messages are printed
+func Stop(){
+	close(outchan)
+	<- donechan
 }
 
 // Trace prints a formatted message, f is a format of the message, v are interfaces with data fields.
@@ -149,5 +157,3 @@ func (this *Tracer) trace(c int, msg string, src bool) uintptr {
 	outchan <- s
 	return pc
 }
-
-//BUG(santucco): To avoid of locking in output and mixing of output from different tracers, all messages are written in a common channel. In case of a panic or a quick exit some messages may be lost.
