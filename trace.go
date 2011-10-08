@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package trace provides simple debug trace output
+// Package trace provides a simple debug trace output
 //
 // A sample of using: 
 //
@@ -149,3 +149,5 @@ func (this *Tracer) trace(c int, msg string, src bool) uintptr {
 	outchan <- s
 	return pc
 }
+
+//BUG(santucco): To avoid of locking in output and mixing of output from different tracers, all messages are written in a common channel. In case of a panic or a quick exit some messages may be lost.
