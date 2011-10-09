@@ -72,20 +72,11 @@ type Tracer struct {
 	CallersSource uint   // The count of printing frames
 }
 
-var outchan chan string = make(chan string)
-var donechan chan bool = make(chan bool)
+var outchan chan string
+var donechan chan bool
 
 func init() {
-	go func() {
-		for true {
-			if s, ok := <-outchan; ok {
-				fmt.Fprint(os.Stderr, s)
-			} else {
-				break
-			}
-		}
-		donechan <- true
-	}()
+	Start()
 }
 
 // Enter prints a trace about an entrance in the frame
@@ -112,10 +103,35 @@ func (this *Tracer) Exit(pc uintptr) {
 	}
 }
 
+// Start starts tracing
+func Start() {
+	if outchan != nil && donechan != nil {
+		return
+	}
+	outchan = make(chan string, 10)
+	donechan = make(chan bool)
+	go func() {
+		for true {
+			if s, ok := <-outchan; ok {
+				fmt.Fprint(os.Stderr, s)
+			} else {
+				break
+			}
+		}
+		donechan <- true
+		close(donechan)
+	}()
+}
+
 // Stop stops all tracing and wait until all trace messages are printed
 func Stop(){
+	if outchan == nil && donechan == nil {
+		return
+	}
 	close(outchan)
 	<- donechan
+	outchan = nil
+	donechan = nil
 }
 
 // Trace prints a formatted message, f is a format of the message, v are interfaces with data fields.
@@ -128,6 +144,9 @@ func (this *Tracer) Trace(l uint, f string, v ...interface{}) {
 
 
 func (this *Tracer) trace(c int, msg string, src bool) uintptr {
+	if outchan == nil {
+		return 0
+	}
 	pc, _, _, ok := runtime.Caller(c)
 	if !ok {
 		outchan <- this.Prefix + msg + "\n"
