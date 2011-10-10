@@ -89,14 +89,12 @@ func (this *Tracer) Enter() uintptr {
 
 // Exit in a conjunction with defer prints a trace about an exit from the frame
 func (this *Tracer) Exit(pc uintptr) {
-	x := recover()
-	if x == nil && (this.TraceLevel&Frame) == 0 {
+	if (this.TraceLevel&Frame) == 0 {
 		return
 	}
-
-	if x != nil {
+	
+	if x := recover(); x != nil {
 		this.trace(2, "panic exit", false)
-		Stop()
 		panic(x)
 	} else {
 		this.trace(2, "exit", this.FrameSource)
@@ -105,11 +103,10 @@ func (this *Tracer) Exit(pc uintptr) {
 
 // Start starts tracing
 func Start() {
-	if outchan != nil && donechan != nil {
+	if outchan != nil {
 		return
 	}
 	outchan = make(chan string, 10)
-	donechan = make(chan bool)
 	go func() {
 		for true {
 			if s, ok := <-outchan; ok {
@@ -119,17 +116,18 @@ func Start() {
 			}
 		}
 		donechan <- true
-		close(donechan)
 	}()
 }
 
 // Stop stops all tracing and wait until all trace messages are printed
 func Stop(){
-	if outchan == nil && donechan == nil {
+	if outchan == nil {
 		return
 	}
+	donechan = make(chan bool)
 	close(outchan)
 	<- donechan
+	close(donechan)
 	outchan = nil
 	donechan = nil
 }
