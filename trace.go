@@ -140,6 +140,15 @@ func (this *Tracer) Trace(l uint, f string, v ...interface{}) {
 	this.trace(2, fmt.Sprintf(f, v...), this.TraceSource)
 }
 
+// TraceFunc repeatedly calls f until second result is true and prints obtained strings
+func (this *Tracer) TraceFunc(l uint, f func() (string, bool)) {
+	if f == nil || (l&this.TraceLevel) == 0 || (l & ^this.TraceLevel) != 0 {
+		return
+	}
+	for s, ok := f(); ok; s, ok = f() {
+		this.trace(2, s, this.TraceSource)
+	}
+}
 
 func (this *Tracer) trace(c int, msg string, src bool) uintptr {
 	if outchan == nil {
